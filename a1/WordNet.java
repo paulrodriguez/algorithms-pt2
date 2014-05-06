@@ -9,13 +9,14 @@ import java.util.HashMap;
 public class WordNet {
     
     private HashMap<Integer, String> vertices;  //  this represents a vertex with id and string of nouns
-    private HashMap<String, Bag<Integer>> nounInIds;  //  the key is a noun and value is the list of ids it appears in
-    private SAP sap;
+    private HashMap<String, Bag<Integer>> nounToId;  //  the key is a noun and value is the list of ids it appears in
+    private final Digraph my_graph;
+    //private final SAP sap_var;
     //  constructor takes the name of two input files
     public WordNet(String synsets, String hypernyms)
     {
         vertices = new HashMap<Integer, String>();
-        nounInIds = new HashMap<String, Bag<Integer>>();
+        nounToId = new HashMap<String, Bag<Integer>>();
         
         In s = new In(synsets);
         Bag<Integer> bag_ids;
@@ -27,12 +28,13 @@ public class WordNet {
             vertices.put(id, elements[1]);
             for (String nouns : elements[1].split(" "))
             {
-                bag_ids = nounInIds.get(nouns);
+                bag_ids = nounToId.get(nouns);
                 if(bag_ids == null)
                 {
-                    bag_ids = new Bag<Integer>();
-                    bag_ids.add(id);
-                    nounInIds.put(nouns, bag_ids);
+                    Bag<Integer> bag_new = new Bag<Integer>();
+                    
+                    bag_new.add(id);
+                    nounToId.put(nouns, bag_new);
                 }
                 else
                 {
@@ -41,19 +43,19 @@ public class WordNet {
             }
         }
         
-        Digraph g = createDigraph(hypernyms, vertices.size());
+        this.my_graph = createDigraph(hypernyms, vertices.size());
         
-        DirectedCycle dc = new DirectedCycle(g);
+        DirectedCycle dc = new DirectedCycle(this.my_graph);
         if (dc.hasCycle())
         {
             throw new IllegalArgumentException("the graph is not a DAG");
         }
         
         int roots = 0;
-        for (int i = 0; i < g.V(); i++)
+        for (int i = 0; i < this.my_graph.V(); i++)
         {
             //  if vertex does not have a adjacent vertices then its a root 
-            if (!g.adj(i).iterator().hasNext())
+            if (!this.my_graph.adj(i).iterator().hasNext())
             {
                 roots++;
             }
@@ -68,7 +70,7 @@ public class WordNet {
     
     private Digraph createDigraph(String hypernyms, int size)
     {
-        Digraph g= new Digraph(size);
+        Digraph g = new Digraph(size);
         In file = new In(hypernyms);
         int synsetid = 0;
         String line = null;
@@ -90,43 +92,42 @@ public class WordNet {
     //  the set of nouns (no duplicates), returned as an Iterable
     public Iterable<String> nouns()
     {
-        return nounInIds.keySet();
+        return nounToId.keySet();
     }
     
     //  is the word a WordNet noun?
     public boolean isNoun(String word)
     {
-        return nounInIds.containsKey(word);
+        return nounToId.containsKey(word);
     }
     
     //  distance between nounA and nounB (defined below)
     public int distance(String nounA, String nounB)
     {
-        if (isNoun(nounA) && isNoun(nounB))
-        {
-            return sap.length(nounInIds.get(nounA), nounInIds.get(nounB));
-        }
-        else
+        
+        if (!isNoun(nounA) || !isNoun(nounB))
         {
             throw new IllegalArgumentException("one or more of the noun(s) not found in the wordnet");
         }
+            
+       
+        SAP sap_var = new SAP(my_graph);
+        return sap_var.length(nounToId.get(nounA), nounToId.get(nounB));
         
-        //return 0;
     }
     
     //  a synset (second field of synsets.txt) that is the common ancestor of nounA and nounB
     //  in a shortest ancestral path (defined below)
     public String sap(String nounA, String nounB)
     {
-        if (isNoun(nounA) && isNoun(nounB))
-        {
-            return vertices.get(sap.ancestor(nounInIds.get(nounA), nounInIds.get(nounB)));
-        }
-        else
+        if (!isNoun(nounA) || !isNoun(nounB))
         {
             throw new IllegalArgumentException("one or more of the noun(s) not found in the wordnet");
         }
-        //return null;
+            
+        SAP sap_var = new SAP(my_graph);
+        return vertices.get(sap_var.ancestor(nounToId.get(nounA), nounToId.get(nounB)));
+       
     }
     
     //  for unit testing of this class
