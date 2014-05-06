@@ -55,6 +55,7 @@ public class SAP
             {
                 if ((bfsv.distTo(i)+bfsw.distTo(i)) < shortest_path)
                 {
+                    shortest_path = bfsv.distTo(i) + bfsw.distTo(i);
                     short_ancestor = i;
                 }
             }
